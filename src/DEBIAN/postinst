@@ -1,0 +1,109 @@
+#!/bin/bash
+# 网络UPS —— 安装后（以及每次升级后）执行
+#
+# $1 = configure（安装/升级都是这个）
+# $2 = 升级前的版本号，全新安装时为空
+set -e
+
+APPID="netsups"
+APP="/usr/local/${APPID}"
+UNIT_SRC="${APP}/init.d/${APPID}.service"
+UNIT_DST="/etc/systemd/system/${APPID}.service"
+PKLA="/etc/polkit-1/localauthority/50-local.d/50-${APPID}.pkla"
+
+# ---------------------------------------------------------------- 应用用户 ---
+# App Center 安装时会按 config.ini 的 user 字段自动建用户，手工 dpkg -i 不会。
+# 这里做一次幂等兜底，两条路径都能跑。主组跟随 TOS 约定用 allusers。
+if ! id "${APPID}" >/dev/null 2>&1; then
+    if getent group allusers >/dev/null 2>&1; then
+        useradd -r -s /usr/sbin/nologin -d "${APP}" -g allusers "${APPID}" 2>/dev/null || true
+    else
+        useradd -r -s /usr/sbin/nologin -d "${APP}" "${APPID}" 2>/dev/null || true
+    fi
+fi
+
+# ------------------------------------------------------------ 运行期目录 ---
+# data 与 logs 不在 deb 文件清单里，所以升级、卸载再重装都不会被 dpkg 删除，
+# 用户的探测配置与日志一直在 data 里。
+mkdir -p "${APP}/data" "${APP}/logs" /var/api
+
+if getent group allusers >/dev/null 2>&1; then
+    chown -R "${APPID}:allusers" "${APP}/data" "${APP}/logs" 2>/dev/null || true
+else
+    chown -R "${APPID}" "${APP}/data" "${APP}/logs" 2>/dev/null || true
+fi
+chmod 750 "${APP}/data" "${APP}/logs" 2>/dev/null || true
+
+# -------------------------------------------------------------- 前端页面 ---
+# App Center 安装时平台会解压 webui.bz2，手工安装不会，这里补一次。
+# 解压出来是 webui/ 目录（内含 index.html），与平台 nginx 的站点根一致。
+if [ -f "${APP}/webui.bz2" ]; then
+    tar -xjf "${APP}/webui.bz2" -C "${APP}" 2>/dev/null || true
+    chmod -R a+rX "${APP}/webui" 2>/dev/null || true
+fi
+
+# 平台会建 /usr/www/<appid> 指向 webui；手工安装时补一条软链，
+# 这样不经 App Center 也能直接用 8181 端口打开页面。
+if [ -d /usr/www ] && [ -d "${APP}/webui" ] && [ ! -e "/usr/www/${APPID}" ]; then
+    ln -sfn "${APP}/webui" "/usr/www/${APPID}" 2>/dev/null || true
+fi
+
+# ------------------------------------------------------------ 关机授权 ---
+# 规范要求应用以非 root 用户运行，但「市电中断后安全关机」必须由 systemd 收尾
+# （tnas-system-stop 会 sync、卸载卷、响蜂鸣），所以不能自己调 reboot(2)。
+#
+# 这里不使用 root 守护进程、也不改 sudoers，只给 logind 投一条**动作级**策略：
+# 仅 org.freedesktop.login1.power-off* 这两个动作，仅 ${APPID} 这一个用户。
+# 其余任何动作、任何其他用户都不受影响，删掉本文件即完全撤销。
+#
+# TOS 的 polkitd（0.105）编译时未启用 JS 规则后端，因此用 localauthority
+# 的 .pkla 格式；该目录变更后 polkitd 不会自动重载，需要重启一次。
+write_pkla() {
+    mkdir -p "$(dirname "${PKLA}")"
+    cat > "${PKLA}" <<EOF
+# 由 ${APPID} 应用安装脚本生成，卸载时删除。
+# 仅授予本应用用户执行「系统关机」的权限，用于市电中断后自动安全关机。
+[${APPID}: allow power off]
+Identity=unix-user:${APPID}
+Action=org.freedesktop.login1.power-off;org.freedesktop.login1.power-off-multiple-sessions;org.freedesktop.login1.power-off-ignore-inhibit
+ResultAny=yes
+ResultInactive=yes
+ResultActive=yes
+EOF
+    chmod 644 "${PKLA}"
+}
+
+PKLA_CHANGED=0
+OLD_PKLA=""
+if [ -f "${PKLA}" ]; then
+    OLD_PKLA="$(cat "${PKLA}" 2>/dev/null || true)"
+fi
+write_pkla
+if [ "${OLD_PKLA}" != "$(cat "${PKLA}")" ]; then
+    PKLA_CHANGED=1
+fi
+
+if [ "${PKLA_CHANGED}" = "1" ] && systemctl is-active polkit >/dev/null 2>&1; then
+    systemctl restart polkit 2>/dev/null || true
+fi
+
+# ------------------------------------------------------------ systemd ---
+# TOS 要求 unit 文件放在应用目录 /usr/local/<appid>/init.d/ 下，
+# 但 systemd 不会扫描那里，需要一条指向 /etc/systemd/system 的链接。
+ln -sf "${UNIT_SRC}" "${UNIT_DST}"
+
+case "$1" in
+    configure)
+        if [ -n "$2" ]; then
+            echo "${APPID}: upgrading from ${2}"
+            # 升级不动数据，只校正一次归属
+            chown -R "${APPID}:allusers" "${APP}/data" "${APP}/logs" 2>/dev/null || true
+        fi
+        systemctl daemon-reload 2>/dev/null || true
+        systemctl enable "${APPID}.service" 2>/dev/null || true
+        # 升级后必须重启才用上新代码；全新安装时 restart 等价于 start
+        systemctl restart "${APPID}.service" 2>/dev/null || true
+        ;;
+esac
+
+exit 0

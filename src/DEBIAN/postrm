@@ -1,0 +1,40 @@
+#!/bin/bash
+# 网络UPS —— 卸载后执行
+#
+# ⚠️ 关于用户数据：
+# TOS 的「卸载重装 / 修复安装」会走 dpkg --purge 路径，所以这里**绝对不能**
+# 删 data 目录，否则用户从应用中心重装一次，探测配置与日志就全没了。
+# 清空数据只能由用户自己在应用界面里「恢复默认」或「清空日志」来做。
+set -e
+
+APPID="netsups"
+APP="/usr/local/${APPID}"
+UNIT_DST="/etc/systemd/system/${APPID}.service"
+PKLA="/etc/polkit-1/localauthority/50-local.d/50-${APPID}.pkla"
+
+# 先摘掉 systemd 注册，否则以后同名的旧 unit 会一直挂在列表里
+rm -f "${UNIT_DST}"
+
+# 撤销关机授权：删掉 .pkla 即完全恢复原状（其他应用、其他用户不受影响）
+if [ -f "${PKLA}" ]; then
+    rm -f "${PKLA}"
+    if systemctl is-active polkit >/dev/null 2>&1; then
+        systemctl restart polkit 2>/dev/null || true
+    fi
+fi
+
+# 只清应用自己生成、可重建的运行时产物：
+#   webui/   每次装/升级都会从 webui.bz2 重新解压
+#   socket   进程退出后残留的
+#   /usr/www 平台用于发静态页的软链
+rm -rf "${APP}/webui"
+rm -f /var/api/"${APPID}".sock
+if [ -L "/usr/www/${APPID}" ]; then
+    rm -f "/usr/www/${APPID}"
+fi
+
+# 即使 purge 也不删用户数据与用户账号：账号删了下次安装会换 UID，
+# data 目录的属主就对不上，等于换个方式把数据锁死。
+systemctl daemon-reload 2>/dev/null || true
+
+exit 0

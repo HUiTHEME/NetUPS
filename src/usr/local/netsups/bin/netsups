@@ -1,0 +1,46 @@
+#!/bin/sh
+# 网络UPS —— 启动器
+#
+# systemd 以应用用户（非 root）执行本脚本，脚本只定位 Python 解释器并把固定
+# 参数交给后端；unit 文件保持简单，也不会因为外部环境变量拼错而起成别的形态。
+set -eu
+
+APP=/usr/local/netsups
+DATA="${NETSUPS_DATA:-$APP/data}"
+
+if [ ! -f "$APP/server/netsups.py" ]; then
+    echo "网络UPS: 缺少后端程序 $APP/server/netsups.py" >&2
+    exit 1
+fi
+
+# 前端页面：平台会解压 webui.bz2 成 webui/；手工安装没解压时退回 webui 源码目录
+if [ -f "$APP/webui/index.html" ]; then
+    WWW="$APP/webui"
+else
+    WWW="$APP/webui"
+fi
+
+PY=""
+for candidate in "${NETSUPS_PYTHON:-}" /usr/bin/python3 /usr/local/bin/python3; do
+    if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+        PY="$candidate"
+        break
+    fi
+done
+if [ -z "$PY" ]; then
+    echo "网络UPS: 未找到 python3，请确认系统已安装 python3" >&2
+    exit 1
+fi
+
+mkdir -p "$DATA" "$APP/logs" /var/api 2>/dev/null || true
+
+# 只监听 Unix Socket，不占任何 TCP 端口，全部流量走平台代理 /v2/proxy/netsups/。
+# --prefix 写 /netsups：平台网关通常会把 /v2/proxy/netsups 剥掉再转发；万一某个
+# 固件把 /netsups/api/xxx 整段透传进来，后端也能把前缀剥干净。
+# "$@" 透传，便于运维用 --check / --detect-gateway 做一次性诊断。
+exec "$PY" "$APP/server/netsups.py" \
+    --socket /var/api/netsups.sock \
+    --prefix "/netsups" \
+    --www "$WWW" \
+    --data "$DATA" \
+    "$@"

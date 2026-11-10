@@ -1,0 +1,24 @@
+#!/bin/bash
+# 网络UPS —— 卸载前执行
+#
+# $1 = remove | upgrade | deconfigure | failed-upgrade
+set -e
+
+APPID="netsups"
+
+case "$1" in
+    remove|deconfigure)
+        # 先让进程自己收尾（收到 SIGTERM 会先关 socket 再退出），
+        # 再兜一次强杀，避免残留子进程占着 socket
+        systemctl stop "${APPID}.service" 2>/dev/null || true
+        pkill -u "${APPID}" 2>/dev/null || true
+        sleep 1
+        systemctl disable "${APPID}.service" 2>/dev/null || true
+        ;;
+    upgrade|failed-upgrade)
+        # 升级不动服务：dpkg 换完文件后由 postinst 重启，
+        # 中间这段时间旧进程继续提供服务，用户不会看到「已停用」
+        ;;
+esac
+
+exit 0

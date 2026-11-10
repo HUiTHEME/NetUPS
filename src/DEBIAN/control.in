@@ -1,0 +1,17 @@
+Package: netsups
+Version: __VERSION__
+Architecture: __ARCH__
+Section: utils
+Priority: optional
+Maintainer: 疯狂的大叔 <HUiTHEME@users.noreply.github.com>
+Depends: libc6 (>= 2.34), systemd, python3 (>= 3.8), iputils-ping, polkitd
+Description: Network UPS - power off this NAS when mains power is lost
+ When several NAS units share a single UPS, only one of them receives the
+ UPS power-loss signal. This app makes the other NAS units periodically ping
+ a device powered from the same mains circuit. That device goes offline as
+ soon as mains power is lost, which this app treats as a power failure and
+ answers with a safe shutdown, protecting the hardware and disks from an
+ abrupt outage.
+ .
+ Runs as a dedicated non-root user and only listens on a Unix socket behind
+ the TOS API gateway, so it occupies no TCP port.

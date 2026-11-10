@@ -1,0 +1,11 @@
+# 构建产物（安装包只放到 GitHub Release，不进仓库）
+dist/
+build/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# macOS
+.DS_Store
+._*

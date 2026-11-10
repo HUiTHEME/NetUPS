@@ -1,0 +1,50 @@
+[Unit]
+Description=NetUPS - power off this NAS when mains power is lost
+Documentation=https://github.com/HUiTHEME/NetUPS
+# 网络就绪后再开始探测：否则刚开机时连路由都还没起来，容易误判
+After=network-online.target
+Wants=network-online.target
+# 崩溃循环保护：60 秒内最多拉起 5 次，超了 systemd 停下并标记失败
+# （Restart= / RestartSec= 按平台规范不配置，重启策略由 TOS 管理）
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=simple
+User=netsups
+# Group 必须显式写 allusers：TOS 建应用用户时主组就是 allusers，
+# 不存在同名的 netsups 组，写 Group=netsups 会让 systemd 以 216/GROUP 失败
+Group=allusers
+WorkingDirectory=/usr/local/netsups
+EnvironmentFile=-/usr/local/netsups/netsups.env
+# 只监听 /var/api/netsups.sock，不占用任何 TCP 端口
+ExecStart=/usr/local/netsups/bin/netsups
+# /var/api 是 1777 共享目录，残留 socket 可能属于别的用户；前面加 "-"
+# 让一次正常停机不会因为 rm 失败被记成「停用失败」
+ExecStopPost=-/bin/rm -f /var/api/netsups.sock
+TimeoutStartSec=30
+TimeoutStopSec=10
+KillMode=control-group
+KillSignal=SIGTERM
+SendSIGKILL=yes
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+# 不能用 PrivateTmp：TOS 的 /var/api 是指向 /tmp/api 的软链接
+# ProtectSystem=strict 下 /usr/local 只读，数据、日志与 socket 目录必须显式放开
+ReadWritePaths=/usr/local/netsups/data /usr/local/netsups/logs /var/api
+LimitNOFILE=65536
+LimitNPROC=256
+# 工具类应用默认配额
+MemoryMax=256M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target

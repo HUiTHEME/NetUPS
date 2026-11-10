@@ -1,0 +1,155 @@
+[zh-cn]
+name = "网络UPS"
+auth = "疯狂的大叔"
+descript = "多台 NAS 共用一台 UPS 时，只有一台能拿到 UPS 的断电通知。本应用让其余 NAS 定期 ping 一台与市电同源供电的设备，该设备因断电下线即判定市电中断，随即执行安全关机，避免突然断电损伤设备与硬盘。"
+important = "检测到市电中断后会关闭本机。请确认探测目标与市电同源供电，且不要选择带独立供电或 UPS 保护的设备。"
+
+[zh-hk]
+name = "網絡UPS"
+auth = "瘋狂的大叔"
+descript = "多台 NAS 共用一台 UPS 時，只有一台能拿到 UPS 的斷電通知。本應用讓其餘 NAS 定期 ping 一台與市電同源供電的設備，該設備因斷電下線即判定市電中斷，隨即執行安全關機，避免突然斷電損傷設備與硬碟。"
+important = "偵測到市電中斷後會關閉本機。請確認探測目標與市電同源供電，且不要選擇帶獨立供電或 UPS 保護的設備。"
+
+[en-us]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure. Make sure the probe target shares the same mains circuit and is not protected by its own UPS or battery."
+
+[ko-kr]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[ja-jp]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[de-de]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[fr-fr]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[it-it]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[es-es]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[hu-hu]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[pl-pl]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[tr-tr]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[ru-ru]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[pt-pt]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[cs-cz]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[da-dk]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[nl-nl]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[nb-no]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[sv-se]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[el-gr]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[ro-ro]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[th-th]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[vi-vn]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[id-id]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[ar-sa]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."
+
+[he-il]
+name = "Network UPS"
+auth = "Crazy Uncle"
+descript = "When several NAS units share one UPS, only one of them receives the UPS power-loss signal. This app makes the other NAS units periodically ping a device that is powered from the same mains circuit. When that device goes offline because mains power is gone, the NAS treats it as a power failure and shuts itself down safely, protecting the hardware and disks from an abrupt outage."
+important = "This app will power off this NAS when it detects a mains failure."

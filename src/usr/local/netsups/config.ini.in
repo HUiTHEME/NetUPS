@@ -1,0 +1,28 @@
+{
+  "id": "netsups",
+  "icon": "/images/icons/netsups.svg",
+  "publisher": "疯狂的大叔",
+  "exec": true,
+  "type": "iframe",
+  "path": "/netsups/",
+  "resize": true,
+  "maxmin": true,
+  "width": 1180,
+  "height": 760,
+  "help": "https://github.com/HUiTHEME/NetUPS",
+  "version": "__VERSION__",
+  "recommend": false,
+  "beta": false,
+  "low_version": "7.0",
+  "category": [
+    "Utilities"
+  ],
+  "relation": [],
+  "platform": "__PLATFORM__",
+  "official": "https://github.com/HUiTHEME/NetUPS",
+  "application_type": "deb",
+  "system_id": "netsups",
+  "package": "netsups",
+  "user": "netsups",
+  "allow_open_in_mobile": true
+}

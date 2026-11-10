@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>网络UPS</title>
+<style>
+  :root{
+    --bg:#f3f3f3; --content:#fbfbfc; --card:#ffffff; --text:#1f2329; --muted:#8a9099;
+    --line:#eceef1; --field:#ffffff; --field-line:#dcdfe6;
+    --ok:#16a34a; --ok-bg:#eaf7ee; --bad:#e5484d; --bad-bg:#fdecec;
+    --warn:#d97706; --warn-bg:#fdf4e3; --accent:#2b7fff;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text); overflow:hidden;
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  }
+  .app{display:flex;height:100vh}
+
+  /* ---------------- 左侧导航 ---------------- */
+  .sidebar{flex:0 0 186px;width:186px;background:var(--bg);
+           display:flex;flex-direction:column;padding:12px;gap:6px}
+  .nav{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:8px;
+       font-size:13.5px;color:#4b5563;cursor:pointer;user-select:none;
+       border:0;background:transparent;text-align:left;font-family:inherit;width:100%;transition:.15s;
+       text-decoration:none}
+  .nav:hover{background:#e9e9e9}
+  .nav.on{background:#fff;color:var(--accent);font-weight:600;box-shadow:0 1px 2px rgba(16,24,40,.09)}
+  .nav .ico{display:inline-flex;color:#9aa1a9;flex:0 0 auto}
+  .nav.on .ico{color:var(--accent)}
+  .nav.more{margin-top:auto;color:#8f959c;font-size:13px}
+  .nav.more .ico{color:#a8adb3}
+  .nav.more:hover{background:#e9e9e9;color:#4b5563}
+
+  /* ---------------- 右侧内容 ---------------- */
+  .content{flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;
+           padding:25px;background:var(--content);overflow:auto;
+           border-radius:20px 0 0 20px}
+  .page-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .page-head h1{font-size:17px;font-weight:600;margin:0;letter-spacing:.2px}
+
+  .pill{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;
+        padding:5px 12px;border-radius:999px;border:1px solid transparent}
+  .pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+  .pill.ok{color:var(--ok);background:var(--ok-bg);border-color:#cfe9d8}
+  .pill.bad{color:var(--bad);background:var(--bad-bg);border-color:#f7cdcc}
+  .pill.warn{color:var(--warn);background:var(--warn-bg);border-color:#f3e0b8}
+
+  .panel{display:flex;flex-direction:column;gap:12px;flex:1;min-height:0}
+  .panel[hidden]{display:none}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+  .card.fill{flex:1;min-height:0;display:flex;flex-direction:column}
+
+  .card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
+             margin-bottom:12px;flex-wrap:wrap;position:relative;z-index:10}
+  .card-title{font-size:13px;font-weight:600;color:#41464d;letter-spacing:.2px}
+  .head-left{display:flex;align-items:center;gap:10px}
+  .head-right{display:flex;align-items:center;gap:10px}
+  .about{color:#4b5563;font-size:13px;line-height:1.75}
+  .about p{margin:0 0 10px}
+  .about p:last-child{margin-bottom:0}
+
+  /* ---- 应用开关（开关上直接写 开启 / 停止） ---- */
+  .status-actions{display:flex;align-items:center;gap:10px;margin-left:auto}
+  .sw{display:inline-flex;flex:0 0 auto;position:relative}
+  .sw input{position:absolute;opacity:0;width:0;height:0}
+  .sw-track{position:relative;display:inline-block;width:68px;height:32px;border-radius:999px;
+            background:#d5d9de;transition:background .2s;cursor:pointer}
+  .sw-knob{position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;
+           box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .2s}
+  .sw-text{position:absolute;top:0;right:11px;height:32px;line-height:32px;font-size:11px;
+           font-weight:600;letter-spacing:.5px;color:#5b6470;transition:color .2s}
+  .sw input:checked + .sw-track{background:var(--accent)}
+  .sw input:checked + .sw-track .sw-knob{transform:translateX(36px)}
+  .sw input:checked + .sw-track .sw-text{right:auto;left:12px;color:#fff}
+  .sw input:disabled + .sw-track{opacity:.6;cursor:default}
+
+  /* ---- 状态卡 ---- */
+  .status-card{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .status-ico{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;
+              background:#eef1f4;color:#8a9099;flex:0 0 auto}
+  .status-ico.ok{background:var(--ok-bg);color:var(--ok)}
+  .status-ico.bad{background:var(--bad-bg);color:var(--bad)}
+  .status-ico.warn{background:var(--warn-bg);color:var(--warn)}
+  .status-text{flex:1;min-width:0}
+  .status-main{font-size:20px;font-weight:700;line-height:1.35;letter-spacing:.3px}
+  .status-main.ok{color:var(--ok)} .status-main.bad{color:var(--bad)}
+  .status-main.warn{color:var(--warn)} .status-main.idle{color:#6b7280}
+  .status-sub{margin-top:2px;color:var(--muted);font-size:12.5px;
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* ---- 表单 ---- */
+  .form{display:grid;grid-template-columns:1fr 1fr;gap:13px 18px}
+  @media(max-width:820px){.form{grid-template-columns:1fr}}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field.wide{grid-column:1 / -1}
+  .lbl{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:#6b7280;position:relative}
+  .hint{position:relative;display:inline-flex;align-items:center;justify-content:center;
+        width:15px;height:15px;border-radius:50%;background:#e6e9ed;color:#6f7883;
+        font-size:10px;font-weight:700;font-style:normal;cursor:help;transition:.15s}
+  .hint:hover{background:#d7dce3;color:#3f4854}
+  .tip{position:absolute;top:calc(100% + 7px);left:-10px;width:236px;background:#fff;color:#4b5563;
+       border:1px solid #e6e8eb;border-radius:9px;padding:8px 10px;font-size:11.5px;line-height:1.65;
+       font-weight:400;text-align:left;box-shadow:0 8px 22px rgba(16,24,40,.14);
+       opacity:0;visibility:hidden;transform:translateY(-3px);transition:.15s;z-index:30;pointer-events:none}
+  .hint:hover .tip{opacity:1;visibility:visible;transform:translateY(0)}
+  input[type=text],input[type=number]{
+    width:100%;background:var(--field);border:1px solid var(--field-line);border-radius:8px;
+    padding:8px 11px;font-size:13.5px;color:var(--text);outline:none;font-variant-numeric:tabular-nums;
+    transition:border-color .15s, box-shadow .15s;font-family:inherit;
+  }
+  input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(43,127,255,.12)}
+
+  button.act{border-radius:8px;border:1px solid var(--field-line);background:#fff;color:#333a42;
+         padding:7px 14px;font-size:12.5px;font-weight:600;cursor:pointer;transition:.15s;font-family:inherit}
+  button.act:hover{border-color:#c3c8d0;background:#fafbfc}
+  button.act.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.act.primary:hover{background:#1f6feb;border-color:#1f6feb}
+  button:disabled{opacity:.6;cursor:default}
+
+  /* ---- 日志 ---- */
+  .tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  select{
+    appearance:none;-webkit-appearance:none;
+    height:32px;padding:0 30px 0 12px;border:1px solid var(--field-line);border-radius:8px;
+    background:#fff no-repeat right 9px center/12px 12px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a9099' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    font-size:12.5px;color:#333a42;font-family:inherit;cursor:pointer;outline:none;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  select:hover{border-color:#c3c8d0}
+  select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(43,127,255,.12)}
+  .tools button{padding:0 12px;height:32px;font-size:12.5px;font-weight:500}
+  .tools button.danger{color:#c62e2e;border-color:#f0d4d3}
+  .tools button.danger:hover{background:#fdf4f3;border-color:#e8bfbd}
+  .logbox{flex:1;min-height:0;overflow:auto;background:#fafbfc;border:1px solid var(--line);
+          border-radius:9px;padding:8px 10px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+          font-size:12px;line-height:1.8;color:#4b5563}
+  .logbox div{white-space:pre-wrap;word-break:break-all}
+  .l-ok{color:#15803d} .l-fail{color:#c62e2e} .l-event{color:#1d6fd8} .l-test{color:#a16207}
+  .l-error{color:#b42318;font-weight:600}
+  .empty{color:#a3a9b1}
+
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(16px);opacity:0;
+         background:#1f2329;color:#f5f6f7;padding:10px 18px;border-radius:10px;font-size:13px;
+         transition:.25s;pointer-events:none;z-index:9;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.err{background:#b42318}
+
+  @media(max-width:680px){
+    .sidebar{flex:0 0 62px;width:62px}
+    .nav span:not(.ico){display:none}
+    .nav{justify-content:center;padding:10px 0}
+  }
+
+  /* ---------------- 铁威马 TOS 适配 ---------------- */
+  /* 平台窗口自带的标题栏（图标 / 标题 / 最小化 / 关闭）是浮在页面之上画的，
+     占掉顶部 40px，会把应用自己的内容盖住。只在平台环境里让出这一段高度，
+     本地直开端口调试时保持原样。 */
+  body.platform .app{padding-top:40px}
+
+  /* 权限告警条：关机权限不可用时必须让用户看见，而不是悄悄失效 */
+  .notice{display:flex;gap:10px;align-items:flex-start;border-radius:12px;
+          padding:13px 16px;font-size:13px;line-height:1.6;
+          background:var(--warn-bg);border:1px solid #f3e0b8;color:#8a5a06}
+  .notice[hidden]{display:none}
+  .notice.bad{background:var(--bad-bg);border-color:#f7cdcc;color:#a3262a}
+  .notice .n-ico{flex:0 0 auto;margin-top:1px}
+  .notice b{font-weight:600}
+  .notice code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+               font-size:12px;background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <button class="nav on" id="nav-settings" onclick="switchTab('settings')">
+      <span class="ico">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </span>
+      <span>应用设置</span>
+    </button>
+    <button class="nav" id="nav-logs" onclick="switchTab('logs')">
+      <span class="ico">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+          <path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/>
+          <path d="M8.5 11h7M8.5 15h5"/>
+        </svg>
+      </span>
+      <span>应用日志</span>
+    </button>
+    <a class="nav more" href="https://github.com/HUiTHEME/NetUPS" target="_blank" rel="noopener noreferrer">
+      <span class="ico">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="3.5" y="3.5" width="7" height="7" rx="1.7"/>
+          <rect x="13.5" y="3.5" width="7" height="7" rx="1.7"/>
+          <rect x="3.5" y="13.5" width="7" height="7" rx="1.7"/>
+          <rect x="13.5" y="13.5" width="7" height="7" rx="1.7"/>
+        </svg>
+      </span>
+      <span>更多精彩</span>
+    </a>
+  </aside>
+
+  <section class="content">
+    <div class="page-head">
+      <h1 id="pageTitle">应用设置</h1>
+      <div class="pill warn" id="pill"><i class="dot"></i><span id="pillText">读取中…</span></div>
+    </div>
+
+    <!-- ============ 应用设置 ============ -->
+    <div class="panel" id="panel-settings">
+      <section class="card status-card">
+        <div class="status-ico" id="statusIco">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M12 3v9"/><path d="M6.4 6.6a8 8 0 1 0 11.2 0"/>
+          </svg>
+        </div>
+        <div class="status-text">
+          <div class="status-main idle" id="statusVal">--</div>
+          <div class="status-sub" id="statusSub">等待首次探测结果</div>
+        </div>
+        <div class="status-actions">
+          <label class="sw" title="应用开关：关闭后停止 ping 探测，也不会触发关机">
+            <input type="checkbox" id="enabled" onchange="toggleEnabled()">
+            <span class="sw-track">
+              <span class="sw-text" id="swText">开启</span>
+              <span class="sw-knob"></span>
+            </span>
+          </label>
+          <button class="act" id="btnProbe" onclick="probeNow()">立即探测</button>
+        </div>
+      </section>
+
+      <section class="notice" id="permWarn" hidden>
+        <span class="n-ico">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M12 8v5"/><circle cx="12" cy="16.6" r=".9" fill="currentColor" stroke="none"/>
+            <path d="M10.3 3.9 2.6 17.2A2 2 0 0 0 4.3 20.2h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
+          </svg>
+        </span>
+        <span id="permWarnText"></span>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <div class="card-title">设置选项</div>
+          <div class="head-right">
+            <button class="act" id="btnReset" onclick="resetDefaults()">恢复默认</button>
+            <button class="act primary" id="btnSave" onclick="saveConfig()">保存配置</button>
+          </div>
+        </div>
+        <div class="form">
+          <label class="field">
+            <span class="lbl">探测目标 IP
+              <i class="hint">?<span class="tip">对局域网内某一台设备进行探测，通常是路由器。该设备必须与市电同源供电，它断电失联就代表市电断开，所以不要选接上 UPS 或持续供电的设备。</span></i>
+            </span>
+            <input type="text" id="target_ip" placeholder="例如 192.168.1.1" autocomplete="off">
+          </label>
+          <label class="field">
+            <span class="lbl">探测间隔（秒）
+              <i class="hint">?<span class="tip">每隔多少秒 ping 一次目标设备。</span></i>
+            </span>
+            <input type="number" id="interval_sec" min="1" max="3600">
+          </label>
+          <label class="field">
+            <span class="lbl">失联再验证（秒）
+              <i class="hint">?<span class="tip">一旦 ping 不通，立刻进入验证环节，进入密集 ping 状态（比正常探测更密）。</span></i>
+            </span>
+            <input type="number" id="recheck_sec" min="1" max="3600">
+          </label>
+          <label class="field">
+            <span class="lbl">连续失败次数（次）
+              <i class="hint">?<span class="tip" id="tipFailures">在密集 ping 状态下持续失败达到下方设定次数，则安排设备关机。</span></i>
+            </span>
+            <input type="number" id="max_failures" min="1" max="100">
+          </label>
+          <label class="field">
+            <span class="lbl">单次超时（秒）
+              <i class="hint">?<span class="tip">单个 ping 包最多等待几秒回包。局域网一般 1~2 秒足够，网络较差可适当加大。</span></i>
+            </span>
+            <input type="number" id="ping_timeout_sec" min="1" max="30">
+          </label>
+          <label class="field">
+            <span class="lbl">开机宽限期（秒）
+              <i class="hint">?<span class="tip">刚开机时网络可能还没就绪，这段时间内的失败不计数，避免刚启动就误关机。默认 180 秒。</span></i>
+            </span>
+            <input type="number" id="startup_grace_sec" min="0" max="7200">
+          </label>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <div class="card-title">应用说明</div>
+        </div>
+        <div class="about">
+          <p>该应用适用于：拥有多台 NAS、却只有一条 UPS 通信通道的场景——UPS 的断电通知只能送到其中一台设备，其余 NAS 拿不到市电状态。</p>
+          <p>它没有复杂的原理，极致简单：让当前 NAS 定期 ping 一台与市电同源供电、且没有 UPS 保护的设备（通常是路由器）。市电断开时那台设备会先掉线，本机 ping 不到它，就判定市电中断并自行软关机。</p>
+          <p>NAS 配 UPS 的意义，不是停电后还能多跑多久，而是市电断开后能让自己干净地关机，避免突然断电损伤设备与硬盘。</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- ============ 应用日志 ============ -->
+    <div class="panel" id="panel-logs" hidden>
+      <section class="card fill">
+        <div class="card-head">
+          <div class="card-title" style="display:flex;align-items:center;gap:6px">Ping 记录
+            <i class="hint">?<span class="tip" id="logTip" style="width:300px">日志文件位置与轮转规则</span></i>
+          </div>
+          <div class="tools">
+            <select id="logOnly" onchange="loadLogs(true)">
+              <option value="all">全部记录</option>
+              <option value="fail">仅异常（失败 / 事件）</option>
+              <option value="ok">仅成功的 ping</option>
+            </select>
+            <select id="logLimit" onchange="loadLogs(true)">
+              <option value="200">最近 200 行</option>
+              <option value="500" selected>最近 500 行</option>
+              <option value="1000">最近 1000 行</option>
+            </select>
+            <button class="act" id="autoBtn" onclick="toggleAuto()">自动刷新：开</button>
+            <button class="act" id="btnClear" onclick="clearLogs()">清空日志</button>
+          </div>
+        </div>
+        <div class="logbox" id="logbox"><div class="empty">加载中…</div></div>
+      </section>
+    </div>
+  </section>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ================= 铁威马 TOS 平台适配层 =================
+ *
+ * 页面由平台 nginx 从 /usr/www/netsups 直接发出（地址 /netsups/），接口必须走
+ * 平台代理 /v2/proxy/netsups/，且每次请求都要带平台会话 Cookie 与 X-Csrf-Token
+ * （TOS 7 规范 8.9 / 8.10）。
+ *
+ * 做法是包一层 window.fetch，业务代码一行都不用改：
+ *   · 相对接口地址自动补 /v2/proxy/<appid> 前缀
+ *   · 自动补 credentials:'include'（TMSESSNAME 是 HttpOnly，JS 读不到）
+ *   · 自动补 X-Csrf-Token 头
+ * 只有在平台环境（地址形如 /netsups/…）下才启用；本地直连端口时第一段路径
+ * 为空，保持原来的相对地址，方便调试。
+ */
+(function(){
+  const seg = (location.pathname.split('/').filter(Boolean)[0] || '');
+  if(!seg || seg.indexOf('.') >= 0) return;      // 本地预览 / 直连，不拦截
+  document.body.classList.add('platform');
+  const BASE = '/v2/proxy/' + seg;
+
+  function readCookie(name){
+    const prefix = name + '=';
+    return document.cookie.split(';').map(s => s.trim())
+      .filter(s => s.indexOf(prefix) === 0)
+      .map(s => s.slice(prefix.length))[0] || '';
+  }
+
+  /* 平台会话失效时网关不一定回 401，也可能回 200 的 {"is_login":false}。
+     这时提示用户回桌面重新登录，不自己造跳转地址。 */
+  let noticeShown = false;
+  function showAuthNotice(){
+    if(noticeShown) return;
+    noticeShown = true;
+    const box = document.createElement('div');
+    box.setAttribute('style', [
+      'position:fixed','inset:0','z-index:2147483647','display:flex',
+      'align-items:center','justify-content:center','background:#f3f3f3',
+      'font:14px/1.7 -apple-system,BlinkMacSystemFont,"PingFang SC",system-ui,sans-serif'
+    ].join(';'));
+    box.innerHTML =
+      '<div style="background:#fff;border:1px solid #e5e8ec;border-radius:12px;' +
+      'padding:30px 38px;text-align:center;max-width:440px;box-shadow:0 12px 40px rgba(16,24,40,.12)">' +
+      '<div style="font-size:15px;font-weight:600;color:#1f2329;margin-bottom:8px">平台登录状态已失效</div>' +
+      '<div style="font-size:13px;color:#6b7684">请回到 TOS 桌面重新登录，再点一次「网络UPS」图标。</div></div>';
+    (document.body || document.documentElement).appendChild(box);
+  }
+
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = function(input, init){
+    let url = input;
+    const opt = init || {};
+    if(typeof url === 'string'){
+      const abs = /^(?:[a-z]+:)?\/\//i.test(url);
+      if(!abs){
+        const rest = url.charAt(0) === '/' ? url : '/' + url;
+        if(rest.indexOf('/v2/proxy/') !== 0) url = BASE + rest;
+      }
+    }
+    opt.credentials = 'include';
+    opt.headers = Object.assign({}, opt.headers || {});
+    const csrf = readCookie('X-Csrf-Token');
+    if(csrf) opt.headers['X-Csrf-Token'] = csrf;
+
+    return nativeFetch(url, opt).then(res => {
+      if(res.status === 401){ showAuthNotice(); return res; }
+      const type = res.headers.get('Content-Type') || '';
+      if(type.indexOf('application/json') < 0) return res;
+      return res.clone().json().then(body => {
+        if(body && body.is_login === false) showAuthNotice();
+        return res;
+      }).catch(() => res);
+    });
+  };
+})();
+
+const $ = id => document.getElementById(id);
+let auto = true, currentCfg = null, activeTab = 'settings';
+
+function toast(msg, isErr){
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isErr ? ' err' : '');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => { t.className = ''; }, 2600);
+}
+function pad(n){ return String(n).padStart(2,'0'); }
+function fmtTs(sec){
+  if(!sec) return '-';
+  const d = new Date(sec*1000);
+  return `${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function fmtDur(sec){
+  if(sec == null) return '-';
+  if(sec < 60) return sec + ' 秒';
+  if(sec < 3600) return Math.floor(sec/60) + ' 分 ' + (sec%60) + ' 秒';
+  return Math.floor(sec/3600) + ' 小时 ' + Math.floor(sec%3600/60) + ' 分';
+}
+
+/* ---------------- Tab ---------------- */
+function switchTab(name, keepHash){
+  activeTab = name;
+  $('nav-settings').classList.toggle('on', name === 'settings');
+  $('nav-logs').classList.toggle('on', name === 'logs');
+  $('panel-settings').hidden = (name !== 'settings');
+  $('panel-logs').hidden = (name !== 'logs');
+  $('pageTitle').textContent = name === 'logs' ? '应用日志' : '应用设置';
+  if(!keepHash) history.replaceState(null, '', '#' + name);
+  if(name === 'logs') loadLogs(true);
+}
+
+/* ---------------- 状态 ---------------- */
+async function loadStatus(forceForm){
+  try{
+    const r = await fetch('api/status', {cache:'no-store'});
+    const s = await r.json();
+    render(s, forceForm === true);
+  }catch(e){ /* 后端重启中 */ }
+}
+
+/* 顶部告警条：关机权限丢失、探测持续异常，都必须让用户看得见，
+   而不是悄悄失效——这个应用失效的代价是硬盘。 */
+function renderNotice(s, st){
+  const box = $('permWarn'), txt = $('permWarnText');
+  if(!box || !txt) return;
+  if(s.poweroff_allowed === false){
+    box.hidden = false;
+    box.classList.add('bad');
+    txt.innerHTML = '<b>当前系统未授予关机权限</b>：检测到市电中断后本机不会自动关机。' +
+      '请重装本应用（安装时会重新投放 polkit 策略），或在终端检查 ' +
+      '<code>pkcheck --action-id org.freedesktop.login1.power-off --process $$</code>。';
+    return;
+  }
+  if(st.status === 'error' && st.consecutive_errors >= (s.grace_alert_after || 3)){
+    box.hidden = false;
+    box.classList.remove('bad');
+    txt.innerHTML = '<b>探测持续异常</b>：' + esc(st.last_error || '') +
+      '。为防误关机，异常期间不计入失联次数。';
+    return;
+  }
+  box.hidden = true;
+}
+
+function render(s, forceForm){
+  const st = s.state, cfg = s.config;
+  const map = {
+    up:            ['市电正常', 'ok',   'ok'],
+    down:          ['市电中断', 'bad',  'bad'],
+    unconfigured:  ['未配置',   'warn', 'warn'],
+    shutting_down: ['正在关机', 'bad',  'bad'],
+    disabled:      ['已停用',   'warn', 'warn'],
+    error:         ['探测异常', 'warn', 'warn'],
+    unknown:       ['探测中',   'warn', 'warn']
+  };
+  // 宽限期内 ping 不通，并不等于市电中断（可能只是刚开机网络没就绪），
+  // 这时候给「市电中断」的红色结论是误导，单独标成「开机宽限」。
+  const graceActive = s.grace_left > 0 && (st.status === 'down' || st.status === 'unknown');
+  let label, pillCls, mainCls;
+  if(graceActive){
+    label = '开机宽限'; pillCls = 'warn'; mainCls = 'warn';
+  }else{
+    [label, pillCls, mainCls] = map[st.status] || map.unknown;
+  }
+
+  $('pill').className = 'pill ' + pillCls;
+  $('pillText').textContent = label;
+  $('statusIco').className = 'status-ico ' + pillCls;
+  $('statusVal').className = 'status-main ' + mainCls;
+  $('statusVal').textContent = label;
+
+  const sub = [];
+  if(st.status === 'disabled'){
+    sub.push('应用开关已关闭，停止探测，不会触发关机');
+  }else if(st.status === 'error'){
+    sub.push('探测命令执行异常，已暂停计数（不会误关机）');
+    if(st.last_error) sub.push(st.last_error);
+  }else{
+    sub.push(cfg.target_ip ? '目标 ' + cfg.target_ip : '尚未设置探测目标');
+    if(st.last_rtt_ms != null) sub.push('响应 ' + st.last_rtt_ms.toFixed(2) + ' ms');
+    if(graceActive){
+      sub.push('系统刚启动，网络可能还没就绪，期间的失败不计数，剩余 ' + s.grace_left + ' 秒');
+    }else if(st.status === 'down'){
+      sub.push('连续失败 ' + st.consecutive_failures + ' / ' + cfg.max_failures);
+    }
+    if(st.last_check_ts) sub.push('最近探测 ' + fmtTs(st.last_check_ts));
+  }
+  $('statusSub').textContent = sub.join(' · ');
+
+  renderNotice(s, st);
+
+  $('enabled').checked = !!cfg.enabled;
+  $('swText').textContent = cfg.enabled ? '开启' : '停止';
+
+  $('tipFailures').textContent =
+    `在密集 ping 状态下持续失败 ${cfg.max_failures} 次，则安排设备关机。`;
+
+  if(!currentCfg || forceForm){
+    currentCfg = JSON.stringify(cfg);
+    for(const k of ['target_ip','interval_sec','recheck_sec','max_failures','ping_timeout_sec','startup_grace_sec']){
+      $(k).value = cfg[k];
+    }
+  }
+}
+
+/* ---------------- 配置 ---------------- */
+async function resetDefaults(){
+  const btn = $('btnReset');
+  btn.disabled = true;
+  const body = {
+    enabled: $('enabled').checked,
+    target_ip: "",
+    interval_sec: 60,
+    ping_timeout_sec: 2,
+    recheck_sec: 10,
+    max_failures: 3,
+    startup_grace_sec: 180
+  };
+  try{
+    const r = await fetch('api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    const j = await r.json();
+    if(j.ok){
+      toast('已恢复默认设置（探测 IP 请重新填写）');
+      currentCfg = null;
+      loadStatus(true); loadLogs();
+    }else{
+      toast(j.error || '恢复失败', true);
+    }
+  }catch(e){ toast('恢复失败：无法连接服务', true); }
+  finally{ btn.disabled = false; }
+}
+
+async function toggleEnabled(){
+  const box = $('enabled');
+  const want = box.checked;
+  box.disabled = true;
+  try{
+    // 用服务端当前配置 + 新开关值提交，避免把表单里未保存的改动一起写进去
+    const sres = await fetch('api/status', {cache:'no-store'});
+    const s = await sres.json();
+    const body = Object.assign({}, s.config, {enabled: want});
+    const res = await fetch('api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    const j = await res.json();
+    if(j.ok){
+      toast(want ? '已开启：恢复 ping 探测' : '已关闭：停止探测，不会触发关机');
+      currentCfg = null;
+      loadStatus(true); loadLogs();
+    }else{
+      box.checked = !want;
+      toast(j.error || '操作失败', true);
+    }
+  }catch(e){
+    box.checked = !want;
+    toast('操作失败：无法连接服务', true);
+  }finally{ box.disabled = false; }
+}
+
+async function saveConfig(){
+  const btn = $('btnSave'); btn.disabled = true;
+  const body = {
+    enabled: $('enabled').checked,
+    target_ip: $('target_ip').value.trim(),
+    interval_sec: Number($('interval_sec').value),
+    recheck_sec: Number($('recheck_sec').value),
+    max_failures: Number($('max_failures').value),
+    ping_timeout_sec: Number($('ping_timeout_sec').value),
+    startup_grace_sec: Number($('startup_grace_sec').value)
+  };
+  try{
+    const r = await fetch('api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    const j = await r.json();
+    if(j.ok){
+      toast('配置已保存，立即生效');
+      currentCfg = null;
+      loadStatus(true); loadLogs();
+    }else{
+      toast(j.error || '保存失败', true);
+    }
+  }catch(e){ toast('保存失败：无法连接服务', true); }
+  finally{ btn.disabled = false; }
+}
+
+async function probeNow(){
+  const btn = $('btnProbe'); btn.disabled = true;
+  try{
+    const r = await fetch('api/probe', {method:'POST'});
+    const j = await r.json();
+    if(j.error) toast(j.error, true);
+    else if(j.ok) toast('探测成功' + (j.rtt_ms ? '：' + j.rtt_ms.toFixed(2) + ' ms' : ''));
+    else toast('探测失败：' + (j.error || '无响应'), true);
+    loadStatus(); loadLogs();
+  }catch(e){ toast('探测失败', true); }
+  finally{ btn.disabled = false; }
+}
+
+/* ---------------- 日志 ---------------- */
+function esc(s){ return s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+async function loadLogs(force){
+  const only = $('logOnly').value, limit = $('logLimit').value;
+  try{
+    const r = await fetch(`api/logs?limit=${limit}&only=${only}`, {cache:'no-store'});
+    const j = await r.json();
+    const box = $('logbox');
+    const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 40;
+    if(!j.lines || !j.lines.length){
+      box.innerHTML = '<div class="empty">暂无日志</div>';
+    }else{
+      box.innerHTML = j.lines.map(line => {
+        // 颜色已表示状态，展示时去掉 [OK]/[FAIL]/[EVENT]/[TEST] 标签列
+        const m = line.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+\[(\w+)\s*\]\s?(.*)$/);
+        let cls = '', text = line;
+        if(m){
+          cls = m[2] === 'OK' ? 'l-ok' : m[2] === 'FAIL' ? 'l-fail'
+              : m[2] === 'TEST' ? 'l-test' : m[2] === 'ERROR' ? 'l-error' : 'l-event';
+          text = m[1] + '  ' + m[3];
+        }
+        return `<div class="${cls}">${esc(text)}</div>`;
+      }).join('');
+      if(atBottom || force) box.scrollTop = box.scrollHeight;
+    }
+    $('logTip').textContent = '日志文件：' + (j.log_path || '') + '（仅保留最近 3 天记录，更早的自动清理）';
+  }catch(e){}
+}
+
+function toggleAuto(){
+  auto = !auto;
+  $('autoBtn').textContent = '自动刷新：' + (auto ? '开' : '关');
+}
+
+/* ---------------- 清空日志（两次点击确认，避免 iframe 里 confirm 被拦） ---------------- */
+let clearTimer = null;
+function resetClearBtn(){
+  clearTimeout(clearTimer); clearTimer = null;
+  const b = $('btnClear');
+  b.textContent = '清空日志';
+  b.classList.remove('danger');
+  b.disabled = false;
+}
+async function clearLogs(){
+  const btn = $('btnClear');
+  if(!clearTimer){
+    btn.textContent = '再点一次确认';
+    btn.classList.add('danger');
+    clearTimer = setTimeout(resetClearBtn, 4000);
+    return;
+  }
+  clearTimeout(clearTimer); clearTimer = null;
+  btn.disabled = true; btn.textContent = '清空中…';
+  try{
+    const r = await fetch('api/logs/clear', {method:'POST'});
+    const j = await r.json();
+    if(j.ok){ toast('日志已清空'); await loadLogs(true); }
+    else { toast(j.error || '清空失败', true); }
+  }catch(e){ toast('清空失败', true); }
+  finally{ resetClearBtn(); }
+}
+
+switchTab(location.hash === '#logs' ? 'logs' : 'settings', true);
+loadStatus(true);
+setInterval(() => { if(auto) loadStatus(); }, 2000);
+setInterval(() => { if(auto && activeTab === 'logs') loadLogs(); }, 3000);
+</script>
+</body>
+</html>
