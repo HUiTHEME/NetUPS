@@ -88,9 +88,20 @@ if [ "${PKLA_CHANGED}" = "1" ] && systemctl is-active polkit >/dev/null 2>&1; th
 fi
 
 # ------------------------------------------------------------ systemd ---
-# TOS 要求 unit 文件放在应用目录 /usr/local/<appid>/init.d/ 下，
-# 但 systemd 不会扫描那里，需要一条指向 /etc/systemd/system 的链接。
-ln -sf "${UNIT_SRC}" "${UNIT_DST}"
+# TOS 要求 unit 文件放在应用目录 /usr/local/<appid>/init.d/ 下，systemd 不会扫描那里，
+# 所以还要在 /etc/systemd/system 落一份。
+#
+# 这里**不能只做软链**：/usr/local/<appid> 是指向 /Volume<N>/@apps/<appid> 的软链，
+# 而数据卷由 tnas-mntdata.service 挂载，开机早期还不存在。systemd 在 multi-user.target
+# 阶段去读这个软链时拿到 ENOENT，只记一条
+#   netsups.service: Failed to open /etc/systemd/system/netsups.service: No such file
+# 然后就不会再尝试启动——表现就是「NAS 重启后应用不会自己起来」。
+# 落成实体文件后，它位于根文件系统，开机第一时间就能读到；卷挂载由 unit 里的
+# After=tnas-mntdata.service 与 ExecStartPre 一起兜住。
+# unit 内容仍以应用目录里的那份为准，每次装/升级都重新覆盖一次。
+rm -f "${UNIT_DST}"
+cat "${UNIT_SRC}" > "${UNIT_DST}"
+chmod 644 "${UNIT_DST}"
 
 case "$1" in
     configure)

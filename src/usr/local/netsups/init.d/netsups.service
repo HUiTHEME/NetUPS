@@ -2,7 +2,7 @@
 Description=NetUPS - power off this NAS when mains power is lost
 Documentation=https://github.com/HUiTHEME/NetUPS
 # 网络就绪后再开始探测：否则刚开机时连路由都还没起来，容易误判
-After=network-online.target
+After=network-online.target tnas-mntdata.service
 Wants=network-online.target
 # 崩溃循环保护：60 秒内最多拉起 5 次，超了 systemd 停下并标记失败
 # （Restart= / RestartSec= 按平台规范不配置，重启策略由 TOS 管理）
@@ -17,6 +17,10 @@ User=netsups
 Group=allusers
 WorkingDirectory=/usr/local/netsups
 EnvironmentFile=-/usr/local/netsups/netsups.env
+# /usr/local/netsups 是 /Volume<N>/@apps/netsups 的软链，卷要等 tnas-mntdata.service
+# 挂上才存在。上面 After= 已经在等它，这里再兜一层：万一卷起得比 systemd 判定的更慢，
+# 最多再等 60 秒，避免 ExecStart 打到一个还不存在的路径。
+ExecStartPre=/bin/sh -c 'timeout 60 sh -c "while [ ! -x /usr/local/netsups/bin/netsups ]; do sleep 1; done"'
 # 只监听 /var/api/netsups.sock，不占用任何 TCP 端口
 ExecStart=/usr/local/netsups/bin/netsups
 # /var/api 是 1777 共享目录，残留 socket 可能属于别的用户；前面加 "-"

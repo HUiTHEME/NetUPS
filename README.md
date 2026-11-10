@@ -184,6 +184,13 @@ dist/netsups_aarch64.deb    # Architecture: arm64   config.ini: aarch64
 只影响这一个用户的这三个关机动作，其余任何动作、任何其他用户都不受影响；删掉文件即完全撤销
 （`postrm` 会删）。
 
+**开机自启要绕一个坑。** `/usr/local/netsups` 是指向 `/Volume1/@apps/netsups` 的软链，
+而数据卷由 `tnas-mntdata.service` 挂载、开机几秒后才就绪。如果 `/etc/systemd/system/netsups.service`
+只做软链，systemd 在 `multi-user.target` 阶段读它就会拿到 ENOENT，只记一条
+`Failed to open ...: No such file or directory` 便不再重试 —— 应用表现为「重启后不自启」。
+所以安装脚本在 `/etc/systemd/system` 落的是**实体副本**（位于根文件系统，开机即读到），
+再由 unit 里的 `After=tnas-mntdata.service` 与 `ExecStartPre` 的等待兜住卷挂载时序。
+
 **服务全程非 root**，unit 里开了 `NoNewPrivileges` / `ProtectSystem=strict` /
 `ProtectHome` / `RestrictSUIDSGID` 等加固项，`ReadWritePaths` 只放开 `data/`、`logs/`
 与 `/var/api`。
@@ -217,7 +224,7 @@ dist/netsups_aarch64.deb    # Architecture: arm64   config.ini: aarch64
 | `/usr/local/netsups/logs/`（创建者：`postinst`） | 日志根 | Directory 0750 `netsups:allusers` | 安装/升级 | 仅含上面两个文件 | Persistent |
 | `/usr/local/netsups/webui/`（创建者：`postinst`） | 从 `webui.bz2` 解压出的前端静态页 | Directory 0755 | 安装/升级时解压 | 约 40 KB | Regenerable — 卸载时删除，重装重建 |
 | `/usr/www/netsups`（符号链接，创建者：`postinst` / 应用中心） | 平台 nginx 的站点根 | Symlink → `/usr/local/netsups/webui` | 安装 | N/A | 卸载时删除 |
-| `/etc/systemd/system/netsups.service`（符号链接，创建者：`postinst`） | 让 systemd 找到应用目录里的 unit | Symlink → `/usr/local/netsups/init.d/netsups.service` | 安装/升级 | N/A | 卸载时删除 |
+| `/etc/systemd/system/netsups.service`（创建者：`postinst`；应用目录里那份的实体副本） | 让 systemd 在开机早期就能读到 unit | systemd unit (INI) | 安装/升级 | 约 2 KB | 卸载时删除 |
 | `/etc/polkit-1/localauthority/50-local.d/50-netsups.pkla`（创建者：`postinst`） | 关机授权策略 | polkit .pkla (INI) | 安装/升级 | 约 400 B | 卸载时删除 |
 
 本应用不写 `/tmp`，不碰用户共享文件夹。（`/var/api` 在 TOS 上指向 `/tmp/api`，
