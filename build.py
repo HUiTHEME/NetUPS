@@ -44,6 +44,10 @@ TARGETS = (("x86_64", "amd64"), ("aarch64", "arm64"))
 # 打包前必须统一成 LF 的文本文件（TOS 规范 4.6：CRLF 会导致解释器路径变成 /bin/bash\r）
 TEXT_EXT = (".sh", ".py", ".ini", ".lang", ".service", ".conf", ".env", ".json", ".md", ".html", ".js", ".css")
 
+# TOS 静态检查 T02：tar 载荷不得使用 USTAR(POSIX) / PAX 格式，必须用 GNU 格式
+# （dpkg-deb 自己出的包就是 GNU：magic 为 "ustar  \0"，POSIX 是 "ustar\0" + "00"）
+TAR_FORMAT = tarfile.GNU_FORMAT
+
 EXEC_PATHS = ("DEBIAN/postinst", "DEBIAN/prerm", "DEBIAN/postrm", "DEBIAN/config",
               "usr/local/netsups/bin/netsups")
 
@@ -93,7 +97,7 @@ def norm_mode(path, root):
 
 
 # --------------------------------------------------------------- tar 构造 ---
-def add_tree(tar, root, arcbase=""):
+def add_tree(tar, root, arcbase="", dot_prefix=True):
     """把 root 下的内容按稳定顺序写进 tar，uid/gid 归零，权限取文件真实权限。"""
     entries = []
     for dirpath, dirnames, filenames in os.walk(root):
@@ -111,7 +115,7 @@ def add_tree(tar, root, arcbase=""):
 
     for full, rel, is_dir in entries:
         arcname = (arcbase + "/" + rel).lstrip("/") if arcbase else rel
-        info = tarfile.TarInfo("./" + arcname)
+        info = tarfile.TarInfo(("./" + arcname) if dot_prefix else arcname)
         info.uid = info.gid = 0
         info.uname = info.gname = "root"
         info.mtime = MTIME
@@ -131,7 +135,7 @@ def add_tree(tar, root, arcbase=""):
 def make_targz(files_or_root, gz_path, root_entry=True):
     """生成 tar.gz；files_or_root 是目录时递归打包。"""
     raw = io.BytesIO()
-    with tarfile.open(fileobj=raw, mode="w", format=tarfile.USTAR_FORMAT) as tar:
+    with tarfile.open(fileobj=raw, mode="w", format=TAR_FORMAT) as tar:
         if root_entry:
             info = tarfile.TarInfo("./")
             info.type = tarfile.DIRTYPE
@@ -191,18 +195,17 @@ def build_one(platform, arch, version, keep):
         raise SystemExit("缺少前端目录 webui/")
     bz = os.path.join(root, APP_PATH, "webui.bz2")
     raw = io.BytesIO()
-    with tarfile.open(fileobj=raw, mode="w", format=tarfile.USTAR_FORMAT) as tar:
-        info = tarfile.TarInfo("./")
-        info.type = tarfile.DIRTYPE
-        info.mode = 0o755
-        info.uid = info.gid = 0
-        info.uname = info.gname = "root"
-        info.mtime = MTIME
-        tar.addfile(info)
-        add_tree(tar, webui_dir, arcbase="webui")
+    with tarfile.open(fileobj=raw, mode="w", format=TAR_FORMAT) as tar:
+        # 与平台既有应用保持一致：条目不带宽高前导 "./"，直接是 webui/index.html
+        add_tree(tar, webui_dir, arcbase="webui", dot_prefix=False)
     with open(bz, "wb") as out:
         out.write(bz2.compress(raw.getvalue(), 9))
     shutil.rmtree(webui_dir)   # 只发压缩包，和平台约定一致
+
+    # 3.5) 隐私政策：随包内嵌一份（审核项 C3），仓库根目录那份是唯一来源
+    privacy = os.path.join(HERE, "PRIVACY.md")
+    if os.path.exists(privacy):
+        shutil.copy2(privacy, os.path.join(root, APP_PATH, "PRIVACY.md"))
 
     # 4) 规范化：换行、权限、垃圾文件
     for dirpath, dirnames, filenames in os.walk(root):
@@ -274,7 +277,7 @@ def verify(deb):
         if out.returncode != 0:
             return False, out.stderr.strip()
         must = ["config.ini", "%s.lang" % APPID, "images/icons/%s.svg" % APPID,
-                "bin/%s" % APPID, "init.d/%s.service" % APPID, "webui.bz2"]
+                "bin/%s" % APPID, "init.d/%s.service" % APPID, "webui.bz2", "PRIVACY.md"]
         listing = out.stdout
         missing = [m for m in must if m not in listing]
         return (not missing), ("缺少: %s" % missing) if missing else "OK"

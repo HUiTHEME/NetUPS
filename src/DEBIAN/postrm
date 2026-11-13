@@ -1,10 +1,13 @@
 #!/bin/bash
 # 网络UPS —— 卸载后执行
 #
-# ⚠️ 关于用户数据：
-# TOS 的「卸载重装 / 修复安装」会走 dpkg --purge 路径，所以这里**绝对不能**
-# 删 data 目录，否则用户从应用中心重装一次，探测配置与日志就全没了。
-# 清空数据只能由用户自己在应用界面里「恢复默认」或「清空日志」来做。
+# $1 = remove | purge | upgrade | failed-upgrade | abort-install | abort-upgrade | disappear
+#
+# ⚠️ 卸载与升级必须分开处理：
+#   remove / purge  → 彻底清理（配置、日志、前端、socket、unit、polkit 授权、账号），
+#                     审核要求「卸载后不得残留任何配置文件或用户数据」（F11）。
+#   upgrade         → 只清可重建的临时产物，绝不碰 data/ 与 logs/，
+#                     否则用户升级一次就把探测配置和日志丢了。
 set -e
 
 APPID="netsups"
@@ -12,29 +15,113 @@ APP="/usr/local/${APPID}"
 UNIT_DST="/etc/systemd/system/${APPID}.service"
 PKLA="/etc/polkit-1/localauthority/50-local.d/50-${APPID}.pkla"
 
-# 先摘掉 systemd 注册，否则以后同名的旧 unit 会一直挂在列表里
-rm -f "${UNIT_DST}"
-
-# 撤销关机授权：删掉 .pkla 即完全恢复原状（其他应用、其他用户不受影响）
-if [ -f "${PKLA}" ]; then
-    rm -f "${PKLA}"
-    if systemctl is-active polkit >/dev/null 2>&1; then
-        systemctl restart polkit 2>/dev/null || true
+# TOS 上 /usr/local/<id> 只是平台建的软链，实体在 /Volume<N>/@apps/<id>。
+# dpkg 会先把这条软链当目录项删掉，等到 postrm 执行时 APP 已经不存在了——
+# 此时仍要能定位实体目录，否则 data/ 与 logs/ 会留在卷上删不掉。
+resolve_real_app() {
+    REAL_APP=""
+    if [ -d "${APP}" ]; then
+        REAL_APP="$(readlink -f "${APP}" 2>/dev/null || echo "${APP}")"
+        return 0
     fi
-fi
+    for cand in /Volume*/@apps/"${APPID}"; do
+        if [ -d "${cand}" ]; then
+            REAL_APP="${cand}"
+            return 0
+        fi
+    done
+    return 0
+}
 
-# 只清应用自己生成、可重建的运行时产物：
-#   webui/   每次装/升级都会从 webui.bz2 重新解压
-#   socket   进程退出后残留的
-#   /usr/www 平台用于发静态页的软链
-rm -rf "${APP}/webui"
-rm -f /var/api/"${APPID}".sock
-if [ -L "/usr/www/${APPID}" ]; then
-    rm -f "/usr/www/${APPID}"
-fi
+remove_unit() {
+    # 摘掉 systemd 注册与 enable 留下的 wants 链接，否则以后同名旧 unit 会挂在列表里
+    rm -f "${UNIT_DST}"
+    rm -f /etc/systemd/system/*.wants/"${APPID}.service" 2>/dev/null || true
+    # TOS 应用中心安装时会额外在 /usr/lib/systemd/system 建一条指向应用目录的软链，
+    # 应用目录删掉后它会变成悬空链接，也一并清掉
+    if [ -L "/usr/lib/systemd/system/${APPID}.service" ]; then
+        rm -f "/usr/lib/systemd/system/${APPID}.service"
+    fi
+    # systemctl enable/restart 会在 /run 留一份传播目录，重启才消失，顺手清掉
+    rm -rf /run/systemd/propagate/"${APPID}.service" 2>/dev/null || true
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl reset-failed "${APPID}.service" 2>/dev/null || true
+}
 
-# 即使 purge 也不删用户数据与用户账号：账号删了下次安装会换 UID，
-# data 目录的属主就对不上，等于换个方式把数据锁死。
+remove_polkit() {
+    # 撤销关机授权：删掉 .pkla 即完全恢复原状（其他应用、其他用户不受影响）
+    if [ -f "${PKLA}" ]; then
+        rm -f "${PKLA}"
+        # .pkla 变更后 polkitd 不会自动重载，必须重启一次才彻底撤销授权
+        if systemctl is-active polkit >/dev/null 2>&1; then
+            systemctl restart polkit 2>/dev/null || true
+        fi
+    fi
+}
+
+remove_runtime_files() {
+    # 进程退出后残留的 socket
+    rm -f /var/api/"${APPID}".sock
+    # 平台用于发静态页的软链
+    if [ -L "/usr/www/${APPID}" ]; then
+        rm -f "/usr/www/${APPID}"
+    fi
+}
+
+remove_user_data() {
+    # 配置、日志与前端解压产物全部删除，不留残余。
+    # 只对名字完全等于 APPID 的目录动手，避免路径异常时误删别的目录。
+    resolve_real_app
+    case "${REAL_APP}" in
+        */@apps/"${APPID}"|/usr/local/"${APPID}")
+            rm -rf "${REAL_APP}/data" "${REAL_APP}/logs" "${REAL_APP}/webui"
+            rm -f "${REAL_APP}/data/config.json.tmp" "${REAL_APP}/logs/ping.log.tmp"
+            find "${REAL_APP}" -maxdepth 4 -type d -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true
+            # 目录空了就连同类目录一起收掉。
+            # 若只剩平台自己的记账文件（install_data.json / ROUTER / .userid），
+            # 说明应用的东西已经清干净，一并去掉；有其它未知内容则原样保留，不冒险。
+            if ! rmdir "${REAL_APP}" 2>/dev/null; then
+                leftover="$(ls -A "${REAL_APP}" 2>/dev/null \
+                    | grep -vE '^(install_data\.json|ROUTER|\.userid|\._.*)$' | head -n 1 || true)"
+                if [ -z "${leftover}" ]; then
+                    rm -f "${REAL_APP}/install_data.json" "${REAL_APP}/ROUTER" "${REAL_APP}/.userid"
+                    rm -f "${REAL_APP}"/._* 2>/dev/null || true
+                    rmdir "${REAL_APP}" 2>/dev/null || true
+                fi
+            fi
+            ;;
+    esac
+    # dpkg 已把 /usr/local/<id> 删掉时这里不会命中；若它还在（如手工 rm 包）顺手清理
+    if [ -L "${APP}" ] && [ ! -e "${APP}" ]; then
+        rm -f "${APP}"
+    fi
+}
+
+case "$1" in
+    remove|purge)
+        remove_unit
+        remove_polkit
+        remove_runtime_files
+        remove_user_data
+        # purge 时连应用账号一起删除；remove 保留账号，
+        # 以便同一次会话里立刻重装不会因为 UID 变化导致目录属主错乱。
+        if [ "$1" = "purge" ]; then
+            if id "${APPID}" >/dev/null 2>&1; then
+                userdel "${APPID}" 2>/dev/null || true
+            fi
+        fi
+        ;;
+    upgrade|failed-upgrade|abort-install|abort-upgrade)
+        # 升级/回滚：保留 data 与 logs，只清可重建的残留
+        rm -f /var/api/"${APPID}".sock
+        ;;
+    disappear)
+        # 包文件已被外部删除，尽力收尾
+        remove_unit
+        remove_polkit
+        ;;
+esac
+
 systemctl daemon-reload 2>/dev/null || true
 
 exit 0

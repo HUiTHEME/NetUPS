@@ -62,6 +62,8 @@
   .about{color:#4b5563;font-size:13px;line-height:1.75}
   .about p{margin:0 0 10px}
   .about p:last-child{margin-bottom:0}
+  .about a{color:#1d6fd8;text-decoration:none}
+  .about a:hover{text-decoration:underline}
 
   /* ---- 应用开关（开关上直接写 开启 / 停止） ---- */
   .status-actions{display:flex;align-items:center;gap:10px;margin-left:auto}
@@ -304,6 +306,7 @@
           <p>该应用适用于：拥有多台 NAS、却只有一条 UPS 通信通道的场景——UPS 的断电通知只能送到其中一台设备，其余 NAS 拿不到市电状态。</p>
           <p>它没有复杂的原理，极致简单：让当前 NAS 定期 ping 一台与市电同源供电、且没有 UPS 保护的设备（通常是路由器）。市电断开时那台设备会先掉线，本机 ping 不到它，就判定市电中断并自行软关机。</p>
           <p>NAS 配 UPS 的意义，不是停电后还能多跑多久，而是市电断开后能让自己干净地关机，避免突然断电损伤设备与硬盘。</p>
+          <p>隐私政策：本应用不收集、不上传、不共享任何数据，配置与日志只存在本机，卸载时一并删除。<a href="https://github.com/HUiTHEME/NetUPS/blob/main/PRIVACY.md" target="_blank" rel="noopener noreferrer">查看完整说明</a></p>
         </div>
       </section>
     </div>

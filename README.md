@@ -74,8 +74,11 @@ systemctl status netsups
 sudo dpkg --purge netsups
 ```
 
-会移除服务、socket、polkit 策略与前端资源，**但保留用户账号与数据目录**。
-（TOS 的「卸载重装」走 purge 路径，删数据等于让用户配置一次就没。）
+会移除服务、unit、socket、polkit 策略、前端资源，以及 `data/`（配置）与 `logs/`（日志），
+不留残余文件；`purge` 还会删除 `netsups` 账号。
+
+> 升级（`dpkg -i` 覆盖安装）不受影响：`postrm` 只在 `remove` / `purge` 时清数据，
+> `upgrade` 分支只清可重建的运行期残留，配置与日志原样保留。
 
 ---
 
@@ -135,10 +138,15 @@ dist/netsups_aarch64.deb    # Architecture: arm64   config.ini: aarch64
 脚本会自动处理 TOS 规范的硬性要求：所有文本文件转 LF、元数据放在 `usr/local/<id>/` 下、
 目录 0755 / 文件 0644 / 启动器 0755、固定 mtime 保证可重现、剔除 `.DS_Store` 与 `._*`。
 
+**tar 载荷用 GNU 格式**（审核项 T02）：TOS 的静态检查要求 `data.tar` / `control.tar`
+不得是 USTAR(POSIX) 或 PAX 格式，Python 的 `tarfile.USTAR_FORMAT` 恰好会被判为违规。
+`build.py` 统一用 `tarfile.GNU_FORMAT`，与 `dpkg-deb` 自己出的包一致（magic 为 `ustar  \0`）。
+
 ### 目录结构
 
 ```
 ├── VERSION                     # 版本号唯一来源，构建时注入 config.ini 与 control
+├── PRIVACY.md                  # 隐私政策（仓库页面可见，同时打进包内）
 ├── build.py                    # 打包脚本
 ├── docs/screenshots/
 └── src/
@@ -212,20 +220,29 @@ dist/netsups_aarch64.deb    # Architecture: arm64   config.ini: aarch64
 
 ---
 
+## 隐私政策
+
+本应用不收集、不上传、不共享任何数据，配置与日志只存在本机，卸载时一并删除。
+完整说明见 [PRIVACY.md](PRIVACY.md)（同时以 `/usr/local/netsups/PRIVACY.md` 打进安装包）。
+
+---
+
 ## 运行时文件清单
 
 | Path (relative to `/usr/local/netsups/data/` unless noted) | Purpose | Format | Created When | Growth Bound / Rotation | Lifecycle |
 |---|---|---|---|---|---|
-| `/usr/local/netsups/data/config.json` | 用户保存的探测配置 | JSON | 首次启动；每次保存配置时重写 | < 4 KB | Persistent — 跨重启、跨升级保留 |
-| `/usr/local/netsups/logs/ping.log` | 每次探测结果与事件记录，界面「应用日志」读取此文件 | 纯文本，每行 `YYYY-MM-DD HH:MM:SS [TAG] msg` | 服务启动；每次探测追加 | 超过 2 MB 轮转为 `ping.log.1`；每小时清理 3 天前的行 | Persistent, rotated |
+| `/usr/local/netsups/data/config.json` | 用户保存的探测配置 | JSON | 首次启动；每次保存配置时重写 | < 4 KB | Persistent — 跨重启、跨升级保留；卸载（remove/purge）时删除 |
+| `/usr/local/netsups/logs/ping.log` | 每次探测结果与事件记录，界面「应用日志」读取此文件 | 纯文本，每行 `YYYY-MM-DD HH:MM:SS [TAG] msg` | 服务启动；每次探测追加 | 超过 2 MB 轮转为 `ping.log.1`；每小时清理 3 天前的行 | Persistent, rotated；卸载时删除 |
 | `/usr/local/netsups/logs/ping.log.1` | 上一代日志（轮转备份） | 同上 | 主日志超过 2 MB 时 | 单个文件，2 MB 上限 | Regenerable — 可安全删除 |
 | `/var/api/netsups.sock` | 平台代理用的 Unix socket | Unix socket，mode 0660 | 服务启动时（先删陈旧文件） | N/A | Removed before each start；`ExecStopPost` 兜底删除 |
-| `/usr/local/netsups/data/`（创建者：`postinst`） | 运行时数据根 | Directory 0750 `netsups:allusers` | 安装/升级 | 仅含上面一个文件 | Persistent |
-| `/usr/local/netsups/logs/`（创建者：`postinst`） | 日志根 | Directory 0750 `netsups:allusers` | 安装/升级 | 仅含上面两个文件 | Persistent |
+| `/usr/local/netsups/data/`（创建者：`postinst`） | 运行时数据根 | Directory 0750 `netsups:allusers` | 安装/升级 | 仅含上面一个文件 | 卸载时删除 |
+| `/usr/local/netsups/logs/`（创建者：`postinst`） | 日志根 | Directory 0750 `netsups:allusers` | 安装/升级 | 仅含上面两个文件 | 卸载时删除 |
 | `/usr/local/netsups/webui/`（创建者：`postinst`） | 从 `webui.bz2` 解压出的前端静态页 | Directory 0755 | 安装/升级时解压 | 约 40 KB | Regenerable — 卸载时删除，重装重建 |
 | `/usr/www/netsups`（符号链接，创建者：`postinst` / 应用中心） | 平台 nginx 的站点根 | Symlink → `/usr/local/netsups/webui` | 安装 | N/A | 卸载时删除 |
 | `/etc/systemd/system/netsups.service`（创建者：`postinst`；应用目录里那份的实体副本） | 让 systemd 在开机早期就能读到 unit | systemd unit (INI) | 安装/升级 | 约 2 KB | 卸载时删除 |
 | `/etc/polkit-1/localauthority/50-local.d/50-netsups.pkla`（创建者：`postinst`） | 关机授权策略 | polkit .pkla (INI) | 安装/升级 | 约 400 B | 卸载时删除 |
+| `/usr/local/netsups/webui.bz2`（包内文件） | 前端压缩包，平台约定的固定名称 | bzip2 压缩的 tar（GNU 格式） | 随包安装 | 约 11 KB | 随包卸载：dpkg 删除 |
+| `/usr/local/netsups/PRIVACY.md`（包内文件，源：仓库根 `PRIVACY.md`） | 隐私政策（审核项 C3），与仓库内那份内容一致 | Markdown (UTF-8) | 随包安装 | 约 5 KB | 随包卸载：dpkg 删除 |
 
 本应用不写 `/tmp`，不碰用户共享文件夹。（`/var/api` 在 TOS 上指向 `/tmp/api`，
 socket 位置由平台约定，非应用自选。）

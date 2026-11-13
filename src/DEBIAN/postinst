@@ -23,8 +23,8 @@ if ! id "${APPID}" >/dev/null 2>&1; then
 fi
 
 # ------------------------------------------------------------ 运行期目录 ---
-# data 与 logs 不在 deb 文件清单里，所以升级、卸载再重装都不会被 dpkg 删除，
-# 用户的探测配置与日志一直在 data 里。
+# data 与 logs 不在 deb 文件清单里：升级时 dpkg 不会动它们，用户配置与日志得以保留；
+# 卸载时由 postrm 统一删除（审核要求卸载后不留残余）。
 mkdir -p "${APP}/data" "${APP}/logs" /var/api
 
 if getent group allusers >/dev/null 2>&1; then
